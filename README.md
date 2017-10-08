@@ -22,11 +22,10 @@ reaches `0.019856` after 20 epochs.
 
 Original            |  Semantic segmentation
 :-------------------------:|:-------------------------:
-![original](data/data_road/testing/image_2/um_000007.png)  |  ![Semantic segmentation](runs/1507487758.817546/um_000007.png)
-![](data/data_road/testing/image_2/um_000010.png) | ![](runs/1507487758.817546/um_000010.png)
-![](data/data_road/testing/image_2/um_000013.png) | ![](runs/1507487758.817546/um_000013.png)
-![](data/data_road/testing/image_2/um_000035.png) | ![](runs/1507487758.817546/um_000035.png)
-
+![original](examples/original/um_000007.png)  |  ![Semantic segmentation](examples/semantic-segmentation/um_000007.png)
+![original](examples/original/um_000010.png)  |  ![Semantic segmentation](examples/semantic-segmentation/um_000010.png)
+![original](examples/original/um_000013.png)  |  ![Semantic segmentation](examples/semantic-segmentation/um_000013.png)
+![original](examples/original/um_000035.png)  |  ![Semantic segmentation](examples/semantic-segmentation/um_000035.png)
 
 ### Setup
 ##### Frameworks and Packages
