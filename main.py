@@ -171,7 +171,6 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param keep_prob: TF Placeholder for dropout keep probability
     :param learning_rate: TF Placeholder for learning rate
     """
-    # TODO: Implement function
 
     for epoch in range(epochs):
         for batch, (images, labels) in enumerate(get_batches_fn(batch_size)):
@@ -193,7 +192,7 @@ tests.test_train_nn(train_nn)
 
 def run():
     num_classes = 2
-    epochs = 10
+    epochs = 20
     batch_size = 2
     vgg_path = os.path.join(data_dir, 'vgg')
 
