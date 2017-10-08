@@ -1,6 +1,32 @@
 # Semantic Segmentation
-### Introduction
-In this project, you'll label the pixels of a road in images using a Fully Convolutional Network (FCN).
+
+### Model
+In this project, I have labeled the pixels of a road in images using a Fully Convolutional Network (FCN).
+To do this, I used VGG16 as an encoder, then 1x1 convolutions which replace the fully connected layers in the original
+VGG16 model, followed by a decoder, consisting of series of transposed convolutions and skip connections. The idea is 
+that after the image goes through the encoder, a vector representing its semantics will be created and then this vector 
+will be decoded into an image again from the decoder. The architecture for the decoder can be found in the `layers` method
+in `main.py`. L2 regularization has been used in the decoder to avoid overfitting.
+
+#### Hyperparameters
+* Learning rate: 1e-4
+* Dropout with keep probability: 0.5
+* Epochs: 20
+
+#### Training 
+The training was done on a `p2.xlarge` instance in AWS and took ~30 minutes to train. Full logs from the training are 
+available in the file `train.log`. The loss function is `1.01993` in the beginning and it steadily goes down until it 
+reaches `0.019856` after 20 epochs.
+
+#### Example images
+
+Original            |  Semantic segmentation
+:-------------------------:|:-------------------------:
+![original](data/data_road/testing/image_2/um_000007.png)  |  ![Semantic segmentation](runs/1507487758.817546/um_000007.png)
+![](data/data_road/testing/image_2/um_000010.png) | ![](runs/1507487758.817546/um_000010.png)
+![](data/data_road/testing/image_2/um_000013.png) | ![](runs/1507487758.817546/um_000013.png)
+![](data/data_road/testing/image_2/um_000035.png) | ![](runs/1507487758.817546/um_000035.png)
+
 
 ### Setup
 ##### Frameworks and Packages
