@@ -2,12 +2,19 @@ import os.path
 import tensorflow as tf
 import helper
 import warnings
+import time
 from distutils.version import LooseVersion
 import project_tests as tests
 
+data_dir = './data'
+runs_dir = './runs'
+image_shape = (160, 576)
+keep_prob_value = 0.5
+learning_rate_value = 1e-4
 
 # Check TensorFlow Version
-assert LooseVersion(tf.__version__) >= LooseVersion('1.0'), 'Please use TensorFlow version 1.0 or newer.  You are using {}'.format(tf.__version__)
+assert LooseVersion(tf.__version__) >= LooseVersion(
+    '1.0'), 'Please use TensorFlow version 1.0 or newer.  You are using {}'.format(tf.__version__)
 print('TensorFlow Version: {}'.format(tf.__version__))
 
 # Check for a GPU
@@ -43,7 +50,8 @@ def load_vgg(sess, vgg_path):
     layer7 = graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
 
     return input_tensor, keep_prob, layer3, layer4, layer7
-    
+
+
 tests.test_load_vgg(load_vgg, tf)
 
 
@@ -56,8 +64,70 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
-    # TODO: Implement function
-    return None
+    stddev = 1e-3
+    l2_reg = 1e-4
+
+    k_initializer = tf.truncated_normal_initializer(stddev=stddev)
+    k_regularizier = tf.contrib.layers.l2_regularizer(l2_reg)
+
+    one_by_one = (1, 1)
+    two_by_two = (2, 2)
+    four_by_four = (4, 4)
+
+    sixteen_by_sixteen = (16, 16)
+    eight_by_eight = (8, 8)
+
+    conv_1x1_l3 = tf.layers.conv2d(inputs=vgg_layer3_out,
+                                   filters=num_classes,
+                                   kernel_size=one_by_one,
+                                   strides=one_by_one,
+                                   kernel_initializer=k_initializer,
+                                   kernel_regularizer=k_regularizier,
+                                   padding='same')
+
+    conv_1x1_l4 = tf.layers.conv2d(inputs=vgg_layer4_out,
+                                   filters=num_classes,
+                                   kernel_size=one_by_one,
+                                   strides=one_by_one,
+                                   kernel_initializer=k_initializer,
+                                   kernel_regularizer=k_regularizier,
+                                   padding='same')
+
+    conv_1x1_l7 = tf.layers.conv2d(inputs=vgg_layer7_out,
+                                   filters=num_classes,
+                                   kernel_size=one_by_one,
+                                   strides=one_by_one,
+                                   kernel_initializer=k_initializer,
+                                   kernel_regularizer=k_regularizier,
+                                   padding='same')
+
+    deconv_layer1 = tf.layers.conv2d_transpose(inputs=conv_1x1_l7,
+                                               filters=num_classes,
+                                               kernel_size=four_by_four,
+                                               strides=two_by_two,
+                                               padding='same',
+                                               kernel_regularizer=k_regularizier)
+
+    skip_connection_1 = tf.add(deconv_layer1, conv_1x1_l4)
+
+    deconv_layer2 = tf.layers.conv2d_transpose(inputs=skip_connection_1,
+                                               filters=num_classes,
+                                               kernel_size=four_by_four,
+                                               strides=two_by_two,
+                                               padding='same',
+                                               kernel_regularizer=k_regularizier)
+
+    skip_connection_2 = tf.add(deconv_layer2, conv_1x1_l3)
+    deconv_layer3 = tf.layers.conv2d_transpose(inputs=skip_connection_2,
+                                               filters=num_classes,
+                                               kernel_size=sixteen_by_sixteen,
+                                               strides=eight_by_eight,
+                                               padding='same',
+                                               kernel_regularizer=k_regularizier)
+
+    return deconv_layer3
+
+
 tests.test_layers(layers)
 
 
@@ -80,10 +150,14 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 
     return logits, train_op, cross_entropy_loss
 
+
 tests.test_optimize(optimize)
 
+
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
-             correct_label, keep_prob, learning_rate):
+             correct_label,
+             keep_prob,
+             learning_rate):
     """
     Train neural network and print out the loss during training.
     :param sess: TF Session
@@ -98,41 +172,68 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
-    pass
+
+    for epoch in range(epochs):
+        for batch, (images, labels) in enumerate(get_batches_fn(batch_size)):
+            feed_dict = {
+                input_image: images,
+                correct_label: labels,
+                keep_prob: keep_prob_value,
+                learning_rate: learning_rate_value
+            }
+
+            start = time.time()
+            _, loss = sess.run([train_op, cross_entropy_loss], feed_dict=feed_dict)
+            took = time.time() - start
+            print("epoch: {} batch: {} loss: {:.6} took(s): {}".format(epoch, batch, loss, took))
+
+
 tests.test_train_nn(train_nn)
 
 
 def run():
     num_classes = 2
-    image_shape = (160, 576)
-    data_dir = './data'
-    runs_dir = './runs'
+    epochs = 10
+    batch_size = 2
+    vgg_path = os.path.join(data_dir, 'vgg')
+
     tests.test_for_kitti_dataset(data_dir)
 
-    # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
 
-    # OPTIONAL: Train and Inference on the cityscapes dataset instead of the Kitti dataset.
-    # You'll need a GPU with at least 10 teraFLOPS to train on.
-    #  https://www.cityscapes-dataset.com/
+    get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
 
+    correct_label = tf.placeholder(tf.float32, [None, image_shape[0], image_shape[1], num_classes])
+    learning_rate = tf.placeholder(tf.float32)
+
+    start = time.time()
     with tf.Session() as sess:
-        # Path to vgg model
-        vgg_path = os.path.join(data_dir, 'vgg')
-        # Create function to get batches
-        get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
+        image_input, keep_prob, vgg_layer3, vgg_layer4, vgg_layer7 = load_vgg(sess, vgg_path)
 
-        # OPTIONAL: Augment Images for better results
-        #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
+        fcn8_last_layer = layers(vgg_layer3, vgg_layer4, vgg_layer7, num_classes)
 
-        # TODO: Build NN using load_vgg, layers, and optimize function
+        logits, train_op, cross_entropy_loss = optimize(fcn8_last_layer,
+                                                        correct_label,
+                                                        learning_rate,
+                                                        num_classes)
 
-        # TODO: Train NN using the train_nn function
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
-        # TODO: Save inference data using helper.save_inference_samples
-        #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        train_nn(sess,
+                 epochs,
+                 batch_size,
+                 get_batches_fn,
+                 train_op,
+                 cross_entropy_loss,
+                 image_input,
+                 correct_label,
+                 keep_prob,
+                 learning_rate)
 
-        # OPTIONAL: Apply the trained model to a video
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape,
+                                      logits, keep_prob, image_input)
+        print("Done. Duration: {:.3} seconds".format(time.time() - start))
 
 
 if __name__ == '__main__':
